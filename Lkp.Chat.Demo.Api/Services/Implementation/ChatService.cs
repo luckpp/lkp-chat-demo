@@ -9,44 +9,34 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
         private readonly IChatRepository _repo;
         private readonly IRagService _ragService;
         private readonly IPromptService _promptService;
+        private readonly IInferenceService _inferenceService;
 
-        public ChatService(IChatRepository repo, IRagService ragService, IPromptService promptService)
+        public ChatService(
+            IChatRepository repo, 
+            IRagService ragService, 
+            IPromptService promptService,
+            IInferenceService inferenceService)
         {
             _repo = repo;
             _ragService = ragService;
             _promptService = promptService;
+            _inferenceService = inferenceService;
         }
 
         public async Task<object> CreateAsync(CreateChatDto createChatDto)
         {
-            var ragResult = await _ragService.RetrieveDocumentsAsync(createChatDto.Content);
-            
-            var ragDocuments = ragResult
-                .Select(r =>
-                {
-                    var pageNumber = 0;
-                    if (r.Metadata.TryGetValue("x-amz-bedrock-kb-document-page-number", out Amazon.Runtime.Documents.Document doc))
-                    {
-                        if (doc.Type == Amazon.Runtime.Documents.DocumentType.Double)
-                        {
-                            pageNumber = (int) doc.AsDouble();
-                            
-                        }
-                    }
+            var ragResult = await _ragService.RetrieveDocumentsAsync(
+                createChatDto.Content);
 
-                    return new RagDocument
-                    {
-                        Text = r.Content.Text,
-                        LocationUri = r.Location.S3Location.Uri,
-                        PageNumber = pageNumber,
-                        Score = r.Score
-                    };
-                })
+            var ragDocuments = ragResult
+                .Select(RagDocument.FromBedrockResult)
                 .ToList();
 
             var prompt = _promptService.BuildPrompt(
                 createChatDto.Content, 
                 ragDocuments);
+
+            var response = await _inferenceService.GenerateResponseAsync(prompt);
 
             return await _repo.CreateAsync(createChatDto);
         }

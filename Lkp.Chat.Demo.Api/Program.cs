@@ -42,6 +42,7 @@ namespace Lkp.Chat.Demo.Api
             builder.Services.AddAWSService<IAmazonDynamoDB>();
             builder.Services.AddSingleton<IChatRepository, DynamoDbChatRepository>();
             builder.Services.AddSingleton<IPromptService, PromptService>();
+            builder.Services.AddScoped<IInferenceService, InferenceService>();
             builder.Services.AddScoped<IChatService, ChatService>();
 
             builder.Services.AddAWSService<IAmazonBedrockAgentRuntime>();
