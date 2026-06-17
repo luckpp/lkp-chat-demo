@@ -1,1 +1,2 @@
-# lkp-chat-demo
+# RAG lkp-chat-demo
+
