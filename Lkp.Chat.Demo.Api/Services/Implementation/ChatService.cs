@@ -10,17 +10,20 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
         private readonly IRagService _ragService;
         private readonly IPromptService _promptService;
         private readonly IInferenceService _inferenceService;
+        private readonly IRephraseInferenceService _rephraseInferenceService;
 
         public ChatService(
-            IChatRepository repo, 
-            IRagService ragService, 
+            IChatRepository repo,
+            IRagService ragService,
             IPromptService promptService,
-            IInferenceService inferenceService)
+            IInferenceService inferenceService,
+            IRephraseInferenceService rephraseInferenceService)
         {
             _repo = repo;
             _ragService = ragService;
             _promptService = promptService;
             _inferenceService = inferenceService;
+            _rephraseInferenceService = rephraseInferenceService;
         }
 
         public async Task<ChatDto> CreateAsync(CreateChatDto createChatDto)
@@ -74,7 +77,11 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             if (chat == null)
                 throw new KeyNotFoundException($"Chat with id '{chatId}' not found.");
 
-            var documents = await _ragService.RetrieveDocumentsAsync(createChatItemDto.Content);
+            var userIntent = await _rephraseInferenceService.DetermineUserIntentAsync(
+                createChatItemDto.Content,
+                chat.Items);
+
+            var documents = await _ragService.RetrieveDocumentsAsync(userIntent);
 
             var response = await _inferenceService.GenerateResponseAsync(
                 createChatItemDto.Content,
