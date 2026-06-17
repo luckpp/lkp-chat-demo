@@ -16,7 +16,18 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             _settings = settings.Value;
         }
 
-        public async Task<List<KnowledgeBaseRetrievalResult>> RetrieveDocumentsAsync(string query)
+        public async Task<IEnumerable<RagDocument>> RetrieveDocumentsAsync(string query)
+        {
+            var ragResult = await RetrieveKnowledgeBaseDocumentsAsync(query);
+
+            var result = ragResult
+                .Select(RagDocument.FromBedrockResult)
+                .ToList();
+
+            return result;
+        }
+
+        private async Task<List<KnowledgeBaseRetrievalResult>> RetrieveKnowledgeBaseDocumentsAsync(string query)
         {
             try
             {

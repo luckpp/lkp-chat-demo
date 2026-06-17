@@ -16,7 +16,7 @@ Rules:
 - Be concise and clear.
 - If the user message is a follow-up or continuation, use the Conversation History to understand intent.
 - Do NOT invent facts or add external knowledge.
-- Cite sources like [Doc1] and include Source + Page.
+- Cite sources from the Context and include Source + Page.
 
 Conversation History:
 {0}

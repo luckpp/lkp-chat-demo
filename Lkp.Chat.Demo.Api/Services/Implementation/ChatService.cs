@@ -25,18 +25,13 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
 
         public async Task<object> CreateAsync(CreateChatDto createChatDto)
         {
-            var ragResult = await _ragService.RetrieveDocumentsAsync(
+            var documents = await _ragService.RetrieveDocumentsAsync(
                 createChatDto.Content);
 
-            var ragDocuments = ragResult
-                .Select(RagDocument.FromBedrockResult)
-                .ToList();
-
-            var prompt = _promptService.BuildPrompt(
-                createChatDto.Content, 
-                ragDocuments);
-
-            var response = await _inferenceService.GenerateResponseAsync(prompt);
+            var response = await _inferenceService.GenerateResponseAsync(
+                    createChatDto.Content, 
+                    [],
+                    documents);
 
             return await _repo.CreateAsync(createChatDto);
         }
