@@ -4,9 +4,9 @@ namespace Lkp.Chat.Demo.Api.Services
 {
     public interface IChatService
     {
-        Task<object> CreateAsync(CreateChatDto createChatDto);
-        Task<object> GetAsync(string chatId);
-        Task<object> UpdateAsync(string chatId, CreateChatItemDto createChatItemDto);
+        Task<ChatDto> CreateAsync(CreateChatDto createChatDto);
+        Task<ChatDto?> GetAsync(string chatId);
+        Task<ChatItemDto?> UpdateAsync(string chatId, CreateChatItemDto createChatItemDto);
         Task DeleteAsync(string chatId);
     }
 }

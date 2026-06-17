@@ -23,7 +23,7 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             _inferenceService = inferenceService;
         }
 
-        public async Task<object> CreateAsync(CreateChatDto createChatDto)
+        public async Task<ChatDto> CreateAsync(CreateChatDto createChatDto)
         {
             var documents = await _ragService.RetrieveDocumentsAsync(
                 createChatDto.Content);
@@ -60,7 +60,7 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             return await _repo.CreateAsync(chat);
         }
 
-        public async Task<object> GetAsync(string chatId)
+        public async Task<ChatDto?> GetAsync(string chatId)
         {
             var chat = await _repo.GetAsync(chatId);
             if (chat == null)
@@ -68,9 +68,41 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             return chat;
         }
 
-        public async Task<object> UpdateAsync(string chatId, CreateChatItemDto createChatItemDto)
+        public async Task<ChatItemDto?> UpdateAsync(string chatId, CreateChatItemDto createChatItemDto)
         {
-            return await _repo.UpdateAsync(chatId, createChatItemDto);
+            var chat = await _repo.GetAsync(chatId);
+            if (chat == null)
+                throw new KeyNotFoundException($"Chat with id '{chatId}' not found.");
+
+            var documents = await _ragService.RetrieveDocumentsAsync(createChatItemDto.Content);
+
+            var response = await _inferenceService.GenerateResponseAsync(
+                createChatItemDto.Content,
+                chat.Items,
+                documents);
+
+            var userItem = new ChatItemDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                ChatId = chatId,
+                Content = createChatItemDto.Content,
+                Role = "user"
+            };
+
+            var assistantItem = new ChatItemDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                ChatId = chatId,
+                Content = response,
+                Role = "assistant"
+            };
+
+            chat.Items.Add(userItem);
+            chat.Items.Add(assistantItem);
+
+            await _repo.UpdateAsync(chat);
+
+            return assistantItem;
         }
 
         public async Task DeleteAsync(string chatId)

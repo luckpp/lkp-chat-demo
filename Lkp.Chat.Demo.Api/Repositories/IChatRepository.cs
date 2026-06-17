@@ -6,6 +6,6 @@ public interface IChatRepository
 {
     Task<ChatDto> CreateAsync(ChatDto chat);
     Task<ChatDto?> GetAsync(string chatId);
-    Task<ChatItemDto> UpdateAsync(string chatId, CreateChatItemDto request);
+    Task<ChatDto> UpdateAsync(ChatDto chat);
     Task DeleteAsync(string chatId);
 }

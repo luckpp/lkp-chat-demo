@@ -90,9 +90,11 @@ public class DynamoDbChatRepository : IChatRepository
         };
     }
 
-    public async Task<ChatItemDto> UpdateAsync(string chatId, CreateChatItemDto request)
+    public async Task<ChatDto> UpdateAsync(ChatDto chat)
     {
-        var itemId = Guid.NewGuid().ToString();
+        var chatId = string.IsNullOrWhiteSpace(chat.Id)
+            ? throw new ArgumentException("Chat id is required.", nameof(chat))
+            : chat.Id;
 
         try
         {
@@ -104,23 +106,27 @@ public class DynamoDbChatRepository : IChatRepository
                     ["ChatId"] = new AttributeValue(chatId)
                 },
                 ConditionExpression = "attribute_exists(ChatId)",
-                UpdateExpression = "SET Items = list_append(if_not_exists(Items, :emptyList), :newItem)",
+                UpdateExpression = "SET #Name = :name, #Items = :items",
+                ExpressionAttributeNames = new Dictionary<string, string>
+                {
+                    ["#Name"] = "Name",
+                    ["#Items"] = "Items"
+                },
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    [":emptyList"] = new AttributeValue { L = [] },
-                    [":newItem"] = new AttributeValue
+                    [":name"] = new AttributeValue(chat.Name),
+                    [":items"] = new AttributeValue
                     {
-                        L =
-                        [
-                            new AttributeValue
+                        L = chat.Items.Select(item => new AttributeValue
+                        {
+                            M = new Dictionary<string, AttributeValue>
                             {
-                                M = new Dictionary<string, AttributeValue>
-                                {
-                                    ["Id"] = new AttributeValue(itemId),
-                                    ["Content"] = new AttributeValue(request.Content)
-                                }
+                                ["Id"] = new AttributeValue(item.Id),
+                                ["ChatId"] = new AttributeValue(string.IsNullOrWhiteSpace(item.ChatId) ? chatId : item.ChatId),
+                                ["Content"] = new AttributeValue(item.Content),
+                                ["Role"] = new AttributeValue(item.Role)
                             }
-                        ]
+                        }).ToList()
                     }
                 }
             });
@@ -130,12 +136,15 @@ public class DynamoDbChatRepository : IChatRepository
             throw new KeyNotFoundException($"Chat '{chatId}' was not found.");
         }
 
-        return new ChatItemDto
+        foreach (var item in chat.Items)
         {
-            Id = itemId,
-            ChatId = chatId,
-            Content = request.Content
-        };
+            if (string.IsNullOrWhiteSpace(item.ChatId))
+            {
+                item.ChatId = chatId;
+            }
+        }
+
+        return chat;
     }
 
     public async Task DeleteAsync(string chatId)
