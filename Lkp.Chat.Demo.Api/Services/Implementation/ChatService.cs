@@ -33,7 +33,31 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
                     [],
                     documents);
 
-            return await _repo.CreateAsync(createChatDto);
+            var chatId = Guid.NewGuid().ToString();
+            var chat = new ChatDto
+            {
+                Id = chatId,
+                Name = createChatDto.Name,
+                Items =
+                [
+                    new ChatItemDto
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ChatId = chatId,
+                        Content = createChatDto.Content,
+                        Role = "user"
+                    },
+                    new ChatItemDto
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ChatId = chatId,
+                        Content = response,
+                        Role = "assistant"
+                    }
+                ]
+            };
+
+            return await _repo.CreateAsync(chat);
         }
 
         public async Task<object> GetAsync(string chatId)

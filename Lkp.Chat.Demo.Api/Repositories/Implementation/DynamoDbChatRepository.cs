@@ -14,10 +14,9 @@ public class DynamoDbChatRepository : IChatRepository
         _dynamo = dynamo;
     }
 
-    public async Task<ChatDto> CreateAsync(CreateChatDto request)
+    public async Task<ChatDto> CreateAsync(ChatDto chat)
     {
-        var chatId = Guid.NewGuid().ToString();
-        var itemId = Guid.NewGuid().ToString();
+        var chatId = string.IsNullOrWhiteSpace(chat.Id) ? Guid.NewGuid().ToString() : chat.Id;
 
         await _dynamo.PutItemAsync(new PutItemRequest
         {
@@ -25,37 +24,33 @@ public class DynamoDbChatRepository : IChatRepository
             Item = new Dictionary<string, AttributeValue>
             {
                 ["ChatId"] = new AttributeValue(chatId),
-                ["Name"] = new AttributeValue(request.Name),
+                ["Name"] = new AttributeValue(chat.Name),
                 ["Items"] = new AttributeValue
                 {
-                    L =
-                    [
-                        new AttributeValue
+                    L = chat.Items.Select(item => new AttributeValue
+                    {
+                        M = new Dictionary<string, AttributeValue>
                         {
-                            M = new Dictionary<string, AttributeValue>
-                            {
-                                ["Id"] = new AttributeValue(itemId),
-                                ["Content"] = new AttributeValue(request.Content)
-                            }
+                            ["Id"] = new AttributeValue(item.Id),
+                            ["ChatId"] = new AttributeValue(string.IsNullOrWhiteSpace(item.ChatId) ? chatId : item.ChatId),
+                            ["Content"] = new AttributeValue(item.Content),
+                            ["Role"] = new AttributeValue(item.Role)
                         }
-                    ]
+                    }).ToList()
                 }
             }
         });
 
-        return new ChatDto
+        chat.Id = chatId;
+        foreach (var item in chat.Items)
         {
-            Id = chatId,
-            Name = request.Name,
-            Items =
-            [
-                new ChatItemDto
-                {
-                    Id = itemId,
-                    Content = request.Content
-                }
-            ]
-        };
+            if (string.IsNullOrWhiteSpace(item.ChatId))
+            {
+                item.ChatId = chatId;
+            }
+        }
+
+        return chat;
     }
 
     public async Task<ChatDto?> GetAsync(string chatId)
@@ -80,7 +75,9 @@ public class DynamoDbChatRepository : IChatRepository
                 .Select(a => new ChatItemDto
                 {
                     Id = a.M.TryGetValue("Id", out var id) ? id.S : string.Empty,
-                    Content = a.M.TryGetValue("Content", out var content) ? content.S : string.Empty
+                    ChatId = a.M.TryGetValue("ChatId", out var chatIdAttribute) ? chatIdAttribute.S : response.Item["ChatId"].S,
+                    Content = a.M.TryGetValue("Content", out var content) ? content.S : string.Empty,
+                    Role = a.M.TryGetValue("Role", out var role) ? role.S : string.Empty
                 })
                 .ToList();
         }
@@ -136,6 +133,7 @@ public class DynamoDbChatRepository : IChatRepository
         return new ChatItemDto
         {
             Id = itemId,
+            ChatId = chatId,
             Content = request.Content
         };
     }
