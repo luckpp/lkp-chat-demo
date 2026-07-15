@@ -63,6 +63,11 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
             return await _repo.CreateAsync(chat);
         }
 
+        public async Task<IEnumerable<ChatSummaryDto>> GetAllAsync()
+        {
+            return await _repo.GetAllAsync();
+        }
+
         public async Task<ChatDto?> GetAsync(string chatId)
         {
             var chat = await _repo.GetAsync(chatId);

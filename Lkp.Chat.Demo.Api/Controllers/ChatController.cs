@@ -5,7 +5,7 @@ using Lkp.Chat.Demo.Api.Services;
 namespace Lkp.Chat.Demo.Api.Controllers;
 
 [ApiController]
-[Route("api/chat")]
+[Route("api/chats")]
 public class ChatController : ControllerBase
 {
     private readonly IChatService _chatService;
@@ -13,6 +13,13 @@ public class ChatController : ControllerBase
     public ChatController(IChatService chatService)
     {
         _chatService = chatService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var chats = await _chatService.GetAllAsync();
+        return Ok(chats);
     }
 
     [HttpPost]

@@ -53,6 +53,25 @@ public class DynamoDbChatRepository : IChatRepository
         return chat;
     }
 
+    public async Task<IEnumerable<ChatSummaryDto>> GetAllAsync()
+    {
+        var response = await _dynamo.ScanAsync(new ScanRequest
+        {
+            TableName = TableName,
+            ProjectionExpression = "ChatId, #Name",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                ["#Name"] = "Name"
+            }
+        });
+
+        return response.Items.Select(item => new ChatSummaryDto
+        {
+            Id = item.TryGetValue("ChatId", out var chatId) ? chatId.S : string.Empty,
+            Name = item.TryGetValue("Name", out var name) ? name.S : string.Empty
+        });
+    }
+
     public async Task<ChatDto?> GetAsync(string chatId)
     {
         var response = await _dynamo.GetItemAsync(new GetItemRequest
