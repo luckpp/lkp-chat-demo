@@ -1,478 +1,229 @@
-# RAG lkp-chat-demo
-
-# C# RAG Chatbot Solution
+# lkp-chat-demo
 
 ## Overview
 
-This project demonstrates a Retrieval-Augmented Generation (RAG) chatbot implemented in C#.
+`lkp-chat-demo` is a .NET 10 ASP.NET Core Web API that implements chat with Retrieval-Augmented Generation (RAG) using AWS services.
 
-Instead of relying only on the knowledge stored inside a Large Language Model (LLM), the chatbot retrieves relevant information from a custom knowledge base before generating a response.
+The API:
+- Stores chats in DynamoDB.
+- Retrieves context from an Amazon Bedrock Knowledge Base.
+- Uses Amazon Nova for both response generation and query rephrasing.
 
-This approach improves:
-- Accuracy
-- Traceability
-- Domain-specific knowledge
-- Reduced hallucinations
-- Ability to answer questions about private company data
-
----
-
-# What is RAG?
-
-RAG (Retrieval-Augmented Generation) combines two capabilities:
-
-1. **Information Retrieval**
-   - Find relevant information from a knowledge base.
-
-2. **Text Generation**
-   - Use a Foundation Model (LLM) to generate a natural language response.
-
-The LLM receives both:
-- User question
-- Retrieved context
-
-and generates an answer based on the retrieved information.
-
----
-
-# High-Level Architecture
+## Current Architecture (Implemented)
 
 ```text
-User Question
-      │
-      ▼
-   Retrieval
-      │
-      ▼
- Knowledge Base
-      │
-      ▼
- Relevant Documents
-      │
-      ▼
- Augmented Prompt
-      │
-      ▼
- Foundation Model
-      │
-      ▼
- Generated Response
+Client
+  │
+  ▼
+ChatController (/api/chats)
+  │
+  ▼
+ChatService
+  ├─ IChatRepository (DynamoDbChatRepository -> DynamoDB table: Chats)
+  ├─ IRagService (RagService -> Bedrock Agent Runtime Retrieve)
+  ├─ IInferenceService (NovaInferenceService -> Bedrock Runtime InvokeModel)
+  └─ IRephraseInferenceService (NovaRephraseInferenceService -> Bedrock Runtime InvokeModel)
 ```
 
----
+## Request/Response Flow
 
-# Example RAG Flow
+### Create chat (`POST /api/chats`)
+1. Client sends initial user message (`content`).
+2. `ChatService` retrieves RAG documents for that message.
+3. `ChatService` generates assistant response with Nova.
+4. `ChatService` generates a short chat title with Nova.
+5. Chat is persisted in DynamoDB with two items: user + assistant.
+6. Full `ChatDto` is returned.
 
-### User Query
+### Continue chat (`PUT /api/chats/{chatId}`)
+1. Client sends next user message (`content`).
+2. Existing chat history is loaded from repository.
+3. User intent is rephrased from history + latest message.
+4. RAG documents are retrieved using rephrased intent.
+5. Assistant response is generated with Nova.
+6. User and assistant items are appended and persisted.
+7. New assistant `ChatItemDto` is returned.
 
-```text
-Who is the Product Manager for John?
-```
+## API Contracts
 
-### Retrieved Context
+### Endpoints
 
-```text
-Support Contacts
+- `GET /api/chats` -> `IEnumerable<ChatSummaryDto>`
+- `POST /api/chats` -> `ChatDto`
+- `GET /api/chats/{chatId}` -> `ChatDto` (`404` if missing)
+- `PUT /api/chats/{chatId}` -> `ChatItemDto` (`404` if missing)
+- `DELETE /api/chats/{chatId}` -> `204 No Content`
 
-Product Manager: Jessie Smith
-Engineer: Sara Ronald
-```
-
-### Augmented Prompt
-
-```text
-Question:
-Who is the Product Manager for John?
-
-Context:
-Product Manager: Jessie Smith
-Engineer: Sara Ronald
-```
-
-### Generated Response
-
-```text
-Jessie Smith is the Product Manager for John.
-```
-
----
-
-# Knowledge Ingestion Pipeline
-
-Before the chatbot can answer questions, documents must be processed and stored.
-
-## Step 1 - Store Documents
-
-Documents are uploaded into a storage location such as:
-
-- Amazon S3
-- File System
-- SharePoint
-- Database
-
-Example:
-
-```text
-product-manual.pdf
-support-contacts.docx
-release-notes.pdf
-```
-
----
-
-## Step 2 - Document Chunking
-
-Large documents are split into smaller chunks.
-
-Example:
-
-```text
-Document:
-
-The Product Manager for John is Jessie Smith.
-For technical support contact Sara Ronald.
-```
-
-Chunks:
-
-```text
-Chunk 1:
-The Product Manager for John is Jessie Smith.
-
-Chunk 2:
-For technical support contact Sara Ronald.
-```
-
-Chunking improves retrieval accuracy and reduces unnecessary context sent to the LLM.
-
----
-
-## Step 3 - Generate Embeddings
-
-Each chunk is converted into a numerical vector using an embedding model.
-
-Possible embedding providers:
-
-- Amazon Titan Embeddings
-- Cohere Embeddings
-- OpenAI Embeddings
-
-Example:
-
-```text
-"The Product Manager for John is Jessie Smith"
-
-↓
-
-[0.17, -0.42, 0.88, 0.11, ...]
-```
-
-These vectors capture semantic meaning.
-
----
-
-# Understanding Embeddings
-
-Embeddings transform words and sentences into high-dimensional vectors.
-
-Words with similar meanings produce vectors that are close together.
-
-Example:
-
-```text
-Dog   -> [0.6, 0.9, 0.1, ...]
-Puppy -> [0.5, 0.8, -0.1, ...]
-Cat   -> [0.7, -0.1, 0.4, ...]
-```
-
-The vectors for:
-
-```text
-Dog
-Puppy
-```
-
-are closer to one another than:
-
-```text
-Dog
-House
-```
-
-This allows semantic search instead of simple keyword matching.
-
----
-
-# Vector Database
-
-Generated embeddings are stored in a vector database.
-
-Possible implementations:
-
-- OpenSearch
-- Pinecone
-- MongoDB Atlas Vector Search
-- Redis Vector Search
-- Aurora
-- Neptune Analytics
-- S3 Vectors
-
-Stored data:
+### Request DTOs
 
 ```json
 {
-  "id": "chunk-001",
-  "text": "The Product Manager for John is Jessie Smith",
-  "embedding": [0.17, -0.42, 0.88, ...]
+  "content": "string"
 }
 ```
 
----
+Used by:
+- `CreateChatDto` (POST)
+- `CreateChatItemDto` (PUT)
 
-# Query Processing
+### Response DTOs
 
-When a user asks a question:
+`ChatSummaryDto`
 
-```text
-Who is the Product Manager for John?
-```
-
-The same embedding model converts the question into a vector.
-
-```text
-Question
-      ↓
-Embedding Model
-      ↓
-Query Vector
-```
-
----
-
-# Semantic Search
-
-The query vector is compared against vectors stored in the database.
-
-Similarity algorithms:
-
-- Cosine Similarity
-- Dot Product
-- Euclidean Distance
-
-The most relevant chunks are retrieved.
-
-Example result:
-
-```text
-1. The Product Manager for John is Jessie Smith.
-2. Sara Ronald provides engineering support.
-```
-
----
-
-# Prompt Augmentation
-
-The retrieved chunks are injected into the final prompt.
-
-```text
-Context:
-The Product Manager for John is Jessie Smith.
-
-Question:
-Who is the Product Manager for John?
-```
-
-This process is called:
-
-```text
-Retrieval-Augmented Generation
-```
-
----
-
-# Response Generation
-
-The augmented prompt is sent to the Foundation Model.
-
-Examples:
-
-- Claude
-- Llama
-- Amazon Nova
-- GPT
-- Mistral
-
-The model generates:
-
-```text
-Jessie Smith is the Product Manager for John.
-```
-
----
-
-# C# Solution Components
-
-## Document Ingestion Service
-
-Responsibilities:
-
-- Read documents
-- Chunk documents
-- Generate embeddings
-- Store vectors
-
-```csharp
-public interface IIngestionService
+```json
 {
-    Task ProcessDocumentAsync(string filePath);
+  "id": "string",
+  "name": "string"
 }
 ```
 
----
+`ChatDto`
 
-## Embedding Service
-
-Responsibilities:
-
-- Generate embeddings for text
-- Call external embedding models
-
-```csharp
-public interface IEmbeddingService
+```json
 {
-    Task<float[]> GenerateEmbeddingAsync(string text);
+  "id": "string",
+  "name": "string",
+  "items": [
+    {
+      "id": "string",
+      "chatId": "string",
+      "content": "string",
+      "role": "user|assistant"
+    }
+  ]
 }
 ```
 
----
+`ChatItemDto`
 
-## Vector Store
-
-Responsibilities:
-
-- Save embeddings
-- Search similar vectors
-
-```csharp
-public interface IVectorStore
+```json
 {
-    Task StoreAsync(DocumentChunk chunk);
-
-    Task<List<DocumentChunk>> SearchAsync(
-        float[] embedding,
-        int topK);
+  "id": "string",
+  "chatId": "string",
+  "content": "string",
+  "role": "user|assistant"
 }
 ```
 
----
+## Chat Example (Matches Current Model)
 
-## Chat Service
-
-Responsibilities:
-
-- Generate query embedding
-- Retrieve context
-- Build prompt
-- Call LLM
-
-```csharp
-public interface IChatService
+```json
 {
-    Task<string> AskAsync(string question);
+  "id": "24f2ffa3-6c6d-4da0-9ccc-97d9ce03e7f0",
+  "name": "Marvin's feelings",
+  "items": [
+    {
+      "id": "946d5c05-cae2-45db-9bf8-c988603a4603",
+      "chatId": "24f2ffa3-6c6d-4da0-9ccc-97d9ce03e7f0",
+      "content": "What is Marvin's emotional state?",
+      "role": "user"
+    },
+    {
+      "id": "c96be237-5628-4fc9-bc32-108a263361af",
+      "chatId": "24f2ffa3-6c6d-4da0-9ccc-97d9ce03e7f0",
+      "content": "Marvin expresses utter contempt and horror of all things human...",
+      "role": "assistant"
+    }
+  ]
 }
 ```
 
----
+## Data Storage Structure
 
-# End-to-End Flow
+### DynamoDB table
+- Table name: `Chats`
+- Partition key: `ChatId` (string)
+- Stored attributes:
+  - `ChatId` (string)
+  - `Name` (string)
+  - `Items` (list of maps)
+
+Each item in `Items` contains:
+- `Id` (string)
+- `ChatId` (string)
+- `Content` (string)
+- `Role` (string)
+
+## Service Interaction Details
+
+- `IRagService` calls Bedrock Knowledge Base `RetrieveAsync` and maps results to:
+  - `Text`
+  - `Location` (S3 URI)
+  - `PageNumber`
+  - `Score`
+- `IInferenceService` builds message history + context and calls Nova model `eu.amazon.nova-micro-v1:0`.
+- `IRephraseInferenceService` resolves follow-up intent before retrieval.
+
+## Current Project Structure
 
 ```text
-1. Upload Documents
-        │
-        ▼
-2. Chunk Documents
-        │
-        ▼
-3. Generate Embeddings
-        │
-        ▼
-4. Save in Vector Database
-        │
-        ▼
-5. User Question
-        │
-        ▼
-6. Generate Query Embedding
-        │
-        ▼
-7. Semantic Search
-        │
-        ▼
-8. Retrieve Relevant Chunks
-        │
-        ▼
-9. Build Augmented Prompt
-        │
-        ▼
-10. Send to LLM
-        │
-        ▼
-11. Generate Response
+Lkp.Chat.Demo.Api/
+  Controllers/
+    ChatController.cs
+  Dto/
+    ChatDto.cs
+    ChatItemDto.cs
+    ChatSummaryDto.cs
+    CreateChatDto.cs
+    CreateChatItemDto.cs
+  Models/
+    BedrockSettings.cs
+    FullPrompt.cs
+    RagDocument.cs
+  Repositories/
+    IChatRepository.cs
+    Implementation/
+      DynamoDbChatRepository.cs
+      InMemoryChatRepository.cs (not active; legacy/commented)
+  Services/
+    IChatService.cs
+    IInferenceService.cs
+    IRephraseInferenceService.cs
+    IRagService.cs
+    IPromptService.cs
+    Implementation/
+      ChatService.cs
+      PromptService.cs
+      RagService.cs
+      Nova/
+        NovaInferenceService.cs
+        NovaRephraseInferenceService.cs
+  Program.cs
 ```
 
----
+## Runtime and Dependencies
 
-# Benefits of RAG
+- Target framework: `.NET 10` (`net10.0`)
+- ASP.NET Core Web API
+- AWS SDK dependencies for:
+  - DynamoDB
+  - Bedrock Runtime
+  - Bedrock Agent Runtime
+- Lambda hosting package is included (`Amazon.Lambda.AspNetCoreServer`).
 
-✅ More accurate responses
+## Notes
 
-✅ Reduced hallucinations
+- This repository does **not** currently implement a local document ingestion pipeline (`IIngestionService`, `IEmbeddingService`, `IVectorStore`) as application services.
+- Retrieval is delegated to Bedrock Knowledge Base instead of directly managing vectors in this API.
 
-✅ Uses private company knowledge
+## Reference Diagrams
 
-✅ No model retraining required
+This README was generated from the diagrams in `docs`:
 
-✅ Easy document updates
+### RAG Architecture
 
-✅ Source-aware responses
+![RAG Architecture](docs/01_RAG_Architecture.png)
 
-✅ Scalable architecture
+### Vector Store
 
----
+![Vector Store](docs/02_Vector_Store.png)
 
-# Technologies Used
+### Tokenization
 
-## Application Layer
+![Tokenization](docs/03_Tokenization.png)
 
-- .NET 8
-- ASP.NET Core
-- C#
+### Embeddings
 
-## Storage
-
-- Amazon S3
-
-## Embeddings
-
-- Amazon Titan
-- Cohere
-
-## Vector Database
-
-- OpenSearch
-- Pinecone
-- MongoDB Atlas
-- Redis
-
-## Foundation Models
-
-- Claude
-- Amazon Nova
-- Llama
-- GPT
-
----
-
-# Conclusion
+![Embeddings](docs/04_Embeddings.png)
 
 This solution implements a modern RAG architecture where documents are transformed into embeddings and stored inside a vector database. User questions are converted into vectors, matched against the stored knowledge base, and the retrieved information is injected into the prompt provided to the Foundation Model. The result is a chatbot capable of providing accurate, context-aware answers based on organization-specific data.
