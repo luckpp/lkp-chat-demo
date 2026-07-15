@@ -4,10 +4,12 @@ using Lkp.Chat.Demo.Api.Dto;
 using System.Text;
 using System.Text.Json;
 
-namespace Lkp.Chat.Demo.Api.Services.Implementation;
+namespace Lkp.Chat.Demo.Api.Services.Implementation.Nova;
 
-public class RephraseInferenceService : IRephraseInferenceService
+public class NovaRephraseInferenceService : IRephraseInferenceService
 {
+    private const string ModelId = "eu.amazon.nova-micro-v1:0";
+
     private const string SystemPrompt = @"
 You are a query rephraser for a chat-based retrieval system.
 
@@ -59,11 +61,10 @@ Rules:
         });
 
         var client = new AmazonBedrockRuntimeClient();
-        var modelId = "eu.amazon.nova-micro-v1:0";
 
         var request = new InvokeModelRequest
         {
-            ModelId = modelId,
+            ModelId = ModelId,
             Body = new MemoryStream(Encoding.UTF8.GetBytes(nativeRequest)),
             ContentType = "application/json"
         };
@@ -90,7 +91,7 @@ Rules:
         }
         catch (AmazonBedrockRuntimeException ex)
         {
-            throw new InvalidOperationException($"Error determining user intent with model '{modelId}': {ex.Message}", ex);
+            throw new InvalidOperationException($"Error determining user intent with model '{ModelId}': {ex.Message}", ex);
         }
         finally
         {

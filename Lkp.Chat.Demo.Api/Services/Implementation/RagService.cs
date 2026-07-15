@@ -31,9 +31,11 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
         {
             try
             {
-                var searchType = _settings.SearchType.Equals("Hybrid", StringComparison.OrdinalIgnoreCase)
-                    ? SearchType.HYBRID
-                    : SearchType.SEMANTIC;
+                //var searchType = _settings.SearchType.Equals("Hybrid", StringComparison.OrdinalIgnoreCase)
+                //    ? SearchType.HYBRID
+                //    : SearchType.SEMANTIC;
+
+                var searchType = SearchType.SEMANTIC;
 
                 var request = new RetrieveRequest
                 {

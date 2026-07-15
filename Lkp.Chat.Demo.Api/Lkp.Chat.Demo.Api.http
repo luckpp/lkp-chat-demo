@@ -1,6 +1,9 @@
 @Lkp.Chat.Demo.Api_HostAddress = http://localhost:5259
 
-GET {{Lkp.Chat.Demo.Api_HostAddress}}/weatherforecast/
+GET {{Lkp.Chat.Demo.Api_HostAddress}}/api/chats
 Accept: application/json
 
 ###
+
+GET {{Lkp.Chat.Demo.Api_HostAddress}}/api/chats/24f2ffa3-6c6d-4da0-9ccc-97d9ce03e7f0
+Accept: application/json

@@ -7,6 +7,7 @@ using Lkp.Chat.Demo.Api.Repositories;
 using Lkp.Chat.Demo.Api.Repositories.Implementation;
 using Lkp.Chat.Demo.Api.Services;
 using Lkp.Chat.Demo.Api.Services.Implementation;
+using Lkp.Chat.Demo.Api.Services.Implementation.Nova;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,8 +43,8 @@ namespace Lkp.Chat.Demo.Api
             builder.Services.AddAWSService<IAmazonDynamoDB>();
             builder.Services.AddSingleton<IChatRepository, DynamoDbChatRepository>();
             builder.Services.AddSingleton<IPromptService, PromptService>();
-            builder.Services.AddScoped<IInferenceService, InferenceService>();
-            builder.Services.AddScoped<IRephraseInferenceService, RephraseInferenceService>();
+            builder.Services.AddScoped<IInferenceService, NovaInferenceService>();
+            builder.Services.AddScoped<IRephraseInferenceService, NovaRephraseInferenceService>();
             builder.Services.AddScoped<IChatService, ChatService>();
 
             builder.Services.AddAWSService<IAmazonBedrockAgentRuntime>();

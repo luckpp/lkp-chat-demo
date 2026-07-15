@@ -8,10 +8,12 @@ using Lkp.Chat.Demo.Api.Models;
 using System.Text;
 using System.Text.Json;
 
-namespace Lkp.Chat.Demo.Api.Services.Implementation;
+namespace Lkp.Chat.Demo.Api.Services.Implementation.Nova;
 
-public class InferenceService : IInferenceService
+public class NovaInferenceService : IInferenceService
 {
+    private const string ModelId = "eu.amazon.nova-micro-v1:0";
+
     private readonly string SystemPrompt = @"
 You are a helpful AI assistant.
 
@@ -88,11 +90,9 @@ User Message:
 
         var client = new AmazonBedrockRuntimeClient();
 
-        var modelId = "eu.amazon.nova-micro-v1:0";
-
         var request = new InvokeModelRequest()
         {
-            ModelId = modelId,
+            ModelId = ModelId,
             Body = new MemoryStream(Encoding.UTF8.GetBytes(nativeRequest)),
             ContentType = "application/json"
         };
@@ -119,7 +119,7 @@ User Message:
         }
         catch (AmazonBedrockRuntimeException ex)
         {
-            throw new InvalidOperationException($"Error invoking Bedrock model '{modelId}': {ex.Message}", ex);
+            throw new InvalidOperationException($"Error invoking Bedrock model '{ModelId}': {ex.Message}", ex);
         }
         finally
         {
@@ -158,11 +158,10 @@ Return ONLY the title text, with no punctuation, quotes, or extra explanation.
         });
 
         var client = new AmazonBedrockRuntimeClient();
-        var modelId = "eu.amazon.nova-micro-v1:0";
 
         var request = new InvokeModelRequest()
         {
-            ModelId = modelId,
+            ModelId = ModelId,
             Body = new MemoryStream(Encoding.UTF8.GetBytes(nativeRequest)),
             ContentType = "application/json"
         };
@@ -189,7 +188,7 @@ Return ONLY the title text, with no punctuation, quotes, or extra explanation.
         }
         catch (AmazonBedrockRuntimeException ex)
         {
-            throw new InvalidOperationException($"Error invoking Bedrock model '{modelId}': {ex.Message}", ex);
+            throw new InvalidOperationException($"Error invoking Bedrock model '{ModelId}': {ex.Message}", ex);
         }
         finally
         {
