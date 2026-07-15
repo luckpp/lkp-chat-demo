@@ -128,6 +128,75 @@ User Message:
     }
 
 
+    private readonly string TitleSystemPrompt = @"
+Generate a short, concise title (maximum 5 words) for a chat conversation based on the user's first message.
+Return ONLY the title text, with no punctuation, quotes, or extra explanation.
+";
+
+    public async Task<string> GenerateTitleAsync(string userInput)
+    {
+        var nativeRequest = JsonSerializer.Serialize(new
+        {
+            system = new[]
+            {
+                new { text = TitleSystemPrompt }
+            },
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new[] { new { text = userInput } }
+                }
+            },
+            inferenceConfig = new
+            {
+                max_new_tokens = 20,
+                temperature = 0.5,
+                top_p = 0.9
+            }
+        });
+
+        var client = new AmazonBedrockRuntimeClient();
+        var modelId = "eu.amazon.nova-micro-v1:0";
+
+        var request = new InvokeModelRequest()
+        {
+            ModelId = modelId,
+            Body = new MemoryStream(Encoding.UTF8.GetBytes(nativeRequest)),
+            ContentType = "application/json"
+        };
+
+        try
+        {
+            var response = await client.InvokeModelAsync(request);
+
+            using var reader = new StreamReader(response.Body);
+            var responseBody = await reader.ReadToEndAsync();
+
+            var jsonResponse = JsonDocument.Parse(responseBody);
+            var output = jsonResponse.RootElement.GetProperty("output");
+            var message = output.GetProperty("message");
+            var content = message.GetProperty("content");
+
+            if (content.GetArrayLength() > 0)
+            {
+                var text = content[0].GetProperty("text").GetString();
+                return text?.Trim() ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+        catch (AmazonBedrockRuntimeException ex)
+        {
+            throw new InvalidOperationException($"Error invoking Bedrock model '{modelId}': {ex.Message}", ex);
+        }
+        finally
+        {
+            client?.Dispose();
+        }
+    }
+
     private async Task ListModelsAsync()
     {
         var bedrockClient = new AmazonBedrockClient();

@@ -36,11 +36,13 @@ namespace Lkp.Chat.Demo.Api.Services.Implementation
                     [],
                     documents);
 
+            var title = await _inferenceService.GenerateTitleAsync(createChatDto.Content);
+
             var chatId = Guid.NewGuid().ToString();
             var chat = new ChatDto
             {
                 Id = chatId,
-                Name = createChatDto.Name,
+                Name = title,
                 Items =
                 [
                     new ChatItemDto

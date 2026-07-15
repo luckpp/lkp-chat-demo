@@ -9,4 +9,5 @@ public interface IInferenceService
         string userInput,
         IEnumerable<ChatItemDto> history,
         IEnumerable<RagDocument> context);
+    Task<string> GenerateTitleAsync(string userInput);
 }
